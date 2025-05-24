@@ -633,7 +633,7 @@ class IndividuoPG:
         return 0
 
 
-    def mutacao(self, probabilidade=0.1):
+    def mutacao(self, probabilidade=0.2):
         self.mutacao_no(self.arvore_aceleracao, probabilidade)
         self.mutacao_no(self.arvore_rotacao, probabilidade)
 
@@ -732,10 +732,12 @@ class ProgramacaoGenetica:
                 
                 # Calcular fitness
                 fitness_tentativa = (
-                    robo.recursos_coletados * 100 +  # Pontos por recursos coletados
-                    robo.distancia_percorrida * 0.1 -  # Pontos por distância percorrida
-                    robo.colisoes * 50 -  # Penalidade por colisões
-                    (100 - robo.energia) * 0.5  # Penalidade por consumo de energia
+                    robo.recursos_coletados * 300 +  # Aumentado de 100 para 300
+                    robo.distancia_percorrida * 0.2 +  # Aumentado de 0.1 para 0.2
+                    (1000 - robo.tempo_parado) * 0.5 +  # Novo: penalidade por ficar parado
+                    robo.energia * 0.3 +  # Novo: bônus por manter energia
+                    (1000 - robo.colisoes * 30) +  # Reduzido de 50 para 30
+                    (5000 if robo.meta_atingida else 0)  # Aumentado de 500 para 5000
                 )
                 
                 # Adicionar pontos extras por atingir a meta

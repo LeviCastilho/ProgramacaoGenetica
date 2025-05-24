@@ -754,17 +754,22 @@ class ProgramacaoGenetica:
                 self.melhor_individuo = individuo
     
     def selecionar(self):
-        # MÉTODO DE SELEÇÃO PARA O ALUNO MODIFICAR
-        # Seleção por torneio
-        tamanho_torneio = 3  # TAMANHO DO TORNEIO PARA O ALUNO MODIFICAR
+        # Seleção por torneio com tamanho variável
+        tamanho_torneio = 5  # Aumentado de 3 para 5
         selecionados = []
-        
-        for _ in range(self.tamanho_populacao):
+
+        #Manter os 10% melhores indivíduos (elitismo)
+        n_elite = max(1, int(self.tamanho_populacao * 0.1))
+        elite = sorted(self.populacao, key=lambda x: x.fitness, reverse=True)[:n_elite]
+        selecionados.extend(elite)
+
+        #Selecionar o resto por torneio
+        while len(selecionados) < self.tamanho_populacao:
             torneio = random.sample(self.populacao, tamanho_torneio)
             vencedor = max(torneio, key=lambda x: x.fitness)
             selecionados.append(vencedor)
-        
-        return selecionados
+
+        return selecionados 
     
     def evoluir(self, n_geracoes=50):
         # NÚMERO DE GERAÇÕES PARA O ALUNO MODIFICAR

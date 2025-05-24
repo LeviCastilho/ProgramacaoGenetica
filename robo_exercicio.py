@@ -560,7 +560,7 @@ class IndividuoPG:
                 'esquerda': IndividuoPG(self.profundidade - 1).criar_arvore_aleatoria(),
                 'direita': IndividuoPG(self.profundidade - 1).criar_arvore_aleatoria()
             }
-        elif operador in ['abs', 'sin', 'cos']:
+        elif operador in ['abs', 'sin', 'cos', 'raiz_quadrada']:
             return {
                 'tipo': 'operador',
                 'operador': operador,
@@ -611,6 +611,9 @@ class IndividuoPG:
             return np.sin(self.avaliar_no(no.get('esquerda'), sensores))
         elif op == 'cos':
             return np.cos(self.avaliar_no(no.get('esquerda'), sensores))
+        elif op == 'raiz_quadrada':
+            val = self.avaliar_no(no.get('esquerda'), sensores)
+            return np.sqrt(abs(val)) if val >= 0 else -np.sqrt(abs(val))
         elif op == 'media':
             return (self.avaliar_no(no.get('esquerda'), sensores) + self.avaliar_no(no.get('direita'), sensores)) / 2
         elif op == 'prioridade':
@@ -619,6 +622,14 @@ class IndividuoPG:
         elif op == 'if_then_else':
             cond = self.avaliar_no(no.get('condicao'), sensores)
             return self.avaliar_no(no.get('entao'), sensores) if cond > 0 else self.avaliar_no(no.get('senao'), sensores)
+        elif op == 'if_maior':
+            esq = self.avaliar_no(no.get('esquerda'), sensores)
+            dir = self.avaliar_no(no.get('direita'), sensores)
+            return 1 if esq > dir else -1
+        elif op == 'if_menor':
+            esq = self.avaliar_no(no.get('esquerda'), sensores)
+            dir = self.avaliar_no(no.get('direita'), sensores)
+            return 1 if esq < dir else -1
 
         esquerda = self.avaliar_no(no.get('esquerda'), sensores)
         direita = self.avaliar_no(no.get('direita'), sensores) if no.get('direita') is not None else 0
@@ -629,9 +640,9 @@ class IndividuoPG:
         elif op == '/': return esquerda / direita if direita != 0 else 0
         elif op == 'max': return max(esquerda, direita)
         elif op == 'min': return min(esquerda, direita)
+        elif op == 'potencia': return esquerda ** min(abs(direita), 3)  # Limita o expoente para evitar overflow
 
         return 0
-
 
     def mutacao(self, probabilidade=0.2):
         self.mutacao_no(self.arvore_aceleracao, probabilidade)
@@ -730,19 +741,25 @@ class ProgramacaoGenetica:
                     if sem_energia or ambiente.passo():
                         break
                 
-                # Calcular fitness
+                # Calcular fitness com pesos ajustados
                 fitness_tentativa = (
-                    robo.recursos_coletados * 300 +  # Aumentado de 100 para 300
-                    robo.distancia_percorrida * 0.2 +  # Aumentado de 0.1 para 0.2
-                    (1000 - robo.tempo_parado) * 0.5 +  # Novo: penalidade por ficar parado
-                    robo.energia * 0.3 +  # Novo: bônus por manter energia
-                    (1000 - robo.colisoes * 30) +  # Reduzido de 50 para 30
-                    (5000 if robo.meta_atingida else 0)  # Aumentado de 500 para 5000
+                    robo.recursos_coletados * 500 +  # Aumentado para dar mais importância aos recursos
+                    robo.distancia_percorrida * 0.1 +  # Reduzido para não incentivar movimento desnecessário
+                    (1000 - robo.tempo_parado) * 0.8 +  # Aumentado para penalizar mais o tempo parado
+                    robo.energia * 0.5 +  # Aumentado para dar mais importância à eficiência energética
+                    (1000 - robo.colisoes * 50) +  # Aumentado para penalizar mais as colisões
+                    (10000 if robo.meta_atingida else 0)  # Aumentado significativamente para priorizar a meta
                 )
                 
-                # Adicionar pontos extras por atingir a meta
+                # Bônus por eficiência
                 if robo.meta_atingida:
-                    fitness_tentativa += 500  # Pontos extras por atingir a meta
+                    # Bônus por atingir a meta com energia
+                    fitness_tentativa += robo.energia * 2
+                    # Bônus por atingir a meta com poucas colisões
+                    fitness_tentativa += (10 - min(robo.colisoes, 10)) * 100
+                    # Bônus por coletar todos os recursos
+                    if robo.recursos_coletados == len(ambiente.recursos):
+                        fitness_tentativa += 2000
                 
                 fitness += max(0, fitness_tentativa)
             
@@ -754,25 +771,32 @@ class ProgramacaoGenetica:
                 self.melhor_individuo = individuo
     
     def selecionar(self):
-        # Seleção por torneio com tamanho variável
-        tamanho_torneio = 5  # Aumentado de 3 para 5
+        # Seleção por torneio com tamanho variável e elitismo
+        tamanho_torneio = 5  # Reduzido para menos pressão seletiva
         selecionados = []
 
-        #Manter os 10% melhores indivíduos (elitismo)
-        n_elite = max(1, int(self.tamanho_populacao * 0.1))
+        # Manter os 10% melhores indivíduos (elitismo ajustado)
+        n_elite = max(1, int(self.tamanho_populacao * 0.10))
         elite = sorted(self.populacao, key=lambda x: x.fitness, reverse=True)[:n_elite]
         selecionados.extend(elite)
 
-        #Selecionar o resto por torneio
+        # Selecionar o resto por torneio
         while len(selecionados) < self.tamanho_populacao:
+            # Seleção por torneio
             torneio = random.sample(self.populacao, tamanho_torneio)
             vencedor = max(torneio, key=lambda x: x.fitness)
-            selecionados.append(vencedor)
+            
+            # Adicionar com probabilidade baseada no fitness
+            if random.random() < 0.8:  # 80% de chance de selecionar o vencedor
+                selecionados.append(vencedor)
+            else:
+                # 20% de chance de selecionar um indivíduo aleatório para manter diversidade
+                selecionados.append(random.choice(self.populacao))
 
-        return selecionados 
+        return selecionados
     
     def evoluir(self, n_geracoes=50):
-        # NÚMERO DE GERAÇÕES PARA O ALUNO MODIFICAR
+        # Aumentado número de gerações para melhor evolução
         for geracao in range(n_geracoes):
             print(f"Geração {geracao + 1}/{n_geracoes}")
             
@@ -796,7 +820,11 @@ class ProgramacaoGenetica:
             while len(nova_populacao) < self.tamanho_populacao:
                 pai1, pai2 = random.sample(selecionados, 2)
                 filho = pai1.crossover(pai2)
-                filho.mutacao(probabilidade=0.1)  # PROBABILIDADE DE MUTAÇÃO PARA O ALUNO MODIFICAR
+                
+                # Mutação adaptativa baseada na geração
+                prob_mutacao = 0.2 * (1 - geracao/n_geracoes)  # Diminui com o tempo
+                filho.mutacao(probabilidade=prob_mutacao)
+                
                 nova_populacao.append(filho)
             
             self.populacao = nova_populacao
@@ -814,9 +842,12 @@ if __name__ == "__main__":
     
     # Criar e treinar o algoritmo genético
     print("Treinando o algoritmo genético...")
-    # PARÂMETROS PARA O ALUNO MODIFICAR
-    pg = ProgramacaoGenetica(tamanho_populacao=200, profundidade=6)
-    melhor_individuo, historico = pg.evoluir(n_geracoes=10)
+    # Parâmetros otimizados
+    pg = ProgramacaoGenetica(
+        tamanho_populacao=300,  # Aumentado para maior diversidade
+        profundidade=5  # Reduzido para evitar árvores muito complexas
+    )
+    melhor_individuo, historico = pg.evoluir(n_geracoes=10) 
     
     # Salvar o melhor indivíduo
     print("Salvando o melhor indivíduo...")
@@ -829,6 +860,7 @@ if __name__ == "__main__":
     plt.title('Evolução do Fitness')
     plt.xlabel('Geração')
     plt.ylabel('Fitness')
+    plt.grid(True)
     plt.savefig('evolucao_fitness_robo.png')
     plt.close()
     

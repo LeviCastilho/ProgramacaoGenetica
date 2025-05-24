@@ -1,50 +1,42 @@
 # ProgramacaoGenetica
 
 ## Relatório de Alterações
+
 1. Novos Operadores
-
-sin, cos: permitem navegação angular mais refinada.
-
-media: suaviza a transição entre valores.
-
-prioridade: executa uma ação preferencial se seu valor for alto.
-
-if_then_else: condicional completo com condição, então, senão.
-
-if_maior' e 'if_menor' para decisões mais complexas
+- sin, cos: permitem navegação angular mais refinada
+- media: suaviza a transição entre valores
+- prioridade: executa uma ação preferencial se seu valor for alto
+- if_then_else: condicional completo com condição, então, senão
+- if_maior e if_menor: para decisões mais complexas
+- raiz_quadrada: para normalização de distâncias
+- potencia: para cálculos exponenciais (com limite de 3 para evitar overflow)
 
 2. Valores das Constantes
-
-Aumentado o range para random.uniform(-10, 10) para permitir comportamentos mais extremos.
+- Mantido o range para random.uniform(-10, 10) para permitir comportamentos mais extremos
 
 3. Parâmetros do Algoritmo Genético
-
-Aumentado o tamanho da população para 200 indivíduos
-
-Aumentado a profundidade da árvore para 6 níveis
-
-Aumentado o número de gerações para 10
+- Aumentado o tamanho da população para 300 indivíduos (era 200)
+- Reduzida a profundidade da árvore para 5 níveis (era 6)
 
 4. Probabilidade de Mutação
-
-Aumentado de 0.1 para 0.2 a probabilidade
+- Implementada mutação adaptativa que começa em 0.2 e diminui linearmente com as gerações
+- Fórmula: 0.2 * (1 - geracao/n_geracoes)
 
 5. Função de Fitness
+- Aumentado o peso dos recursos coletados para 500 (era 300)
+- Aumentado o bônus por manter energia para 0.5 (era 0.3)
+- Aumentada a penalidade por ficar parado para 0.8 (era 0.5)
+- Reduzido o peso da distância percorrida para 0.1 (era 0.2)
+- Aumentada a penalidade de colisão para 50 (era 30)
+- Aumentado o bônus por atingir a meta para 10000 (era 5000)
+- Adicionados novos bônus:
+  * Bônus por atingir a meta com energia: energia * 2
+  * Bônus por atingir a meta com poucas colisões: (10 - min(colisoes, 10)) * 100
+  * Bônus por coletar todos os recursos: 2000
 
-Aumentado o peso dos recursos coletados pra 300
-
-Adicionado bônus por manter energia
-
-Adicionado penalidade por ficar parado
-
-Aumentado os pontos por distância percorrida para 0.2
-
-Penalidade de colisão reduzida de 50 para 30
-
-6. Método de Seleção,
-
-Aumentado o tamanho do torneio para 5
-
-Elitismo (manter os 10% melhores individuos)
-
-O resto é selecionado por torneio
+6. Método de Seleção
+- Aumentado o tamanho do torneio para 7 (era 5)
+- Aumentado o elitismo para 20% (era 10%)
+- Implementada seleção probabilística:
+  * 80% de chance de selecionar o melhor do torneio
+  * 20% de chance de selecionar aleatoriamente para manter diversidade

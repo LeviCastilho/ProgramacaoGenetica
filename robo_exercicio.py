@@ -548,7 +548,9 @@ class IndividuoPG:
         operador = random.choice([
             '+', '-', '*', '/', 'max', 'min', 'abs', 
             'if_positivo', 'if_negativo', 'if_then_else',
-            'sin', 'cos', 'media', 'prioridade'
+            'sin', 'cos', 'media', 'prioridade',
+            'if_maior', 'if_menor',  # Novos operadores
+            'potencia', 'raiz_quadrada'  # Novos operadores
         ])
 
         if operador in ['+', '-', '*', '/', 'max', 'min', 'prioridade', 'media']:
@@ -583,7 +585,7 @@ class IndividuoPG:
             'meta_atingida'
         ])
         if tipo == 'constante':
-            return {'tipo': 'folha', 'valor': random.uniform(-5, 5)}
+            return {'tipo': 'folha', 'valor': random.uniform(-10, 10)}
         else:
             return {'tipo': 'folha', 'variavel': tipo}
 
@@ -806,8 +808,8 @@ if __name__ == "__main__":
     # Criar e treinar o algoritmo genético
     print("Treinando o algoritmo genético...")
     # PARÂMETROS PARA O ALUNO MODIFICAR
-    pg = ProgramacaoGenetica(tamanho_populacao=20, profundidade=4)
-    melhor_individuo, historico = pg.evoluir(n_geracoes=50)
+    pg = ProgramacaoGenetica(tamanho_populacao=200, profundidade=6)
+    melhor_individuo, historico = pg.evoluir(n_geracoes=10)
     
     # Salvar o melhor indivíduo
     print("Salvando o melhor indivíduo...")

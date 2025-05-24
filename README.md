@@ -41,4 +41,10 @@ Aumentado os pontos por distância percorrida para 0.2
 
 Penalidade de colisão reduzida de 50 para 30
 
+6. Método de Seleção,
 
+Aumentado o tamanho do torneio para 5
+
+Elitismo (manter os 10% melhores individuos)
+
+O resto é selecionado por torneio

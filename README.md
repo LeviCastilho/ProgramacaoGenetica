@@ -40,3 +40,24 @@
 - Implementada seleção probabilística:
   * 80% de chance de selecionar o melhor do torneio
   * 20% de chance de selecionar aleatoriamente para manter diversidade
+
+7. Múltiplas Populações Paralelas
+- Implementado sistema de 5 populações paralelas
+- Adicionada migração de indivíduos entre populações a cada 10 gerações
+- Melhor indivíduo de cada população migra para a próxima população
+
+8. Parâmetros de Treinamento Otimizados
+- Ajustado tamanho da população para 500 indivíduos (era 300)
+- Ajustado número de gerações para 50 (era 10)
+- Implementada profundidade variável nas árvores:
+  * Profundidade mínima: 3
+  * Profundidade máxima: 6
+
+9. Seleção por Torneio Dinâmico
+- Tamanho do torneio varia de 3 a 10 baseado na geração atual
+- Fórmula: max(3, min(10, int(5 + (geracao / n_geracoes) * 5)))
+- Mantém pressão seletiva mais alta no início e mais baixa no final
+
+10. Sistema de Elitismo Global
+- Mantém registro do melhor indivíduo global entre todas as populações
+- Permite que o melhor indivíduo seja preservado independente da população

@@ -701,89 +701,90 @@ class IndividuoPG:
             return individuo
 
 class ProgramacaoGenetica:
-    def __init__(self, tamanho_populacao=50, profundidade=3):
+    def __init__(self, tamanho_populacao=1000, profundidade_min=3, profundidade_max=6):
         # PARÂMETROS PARA O ALUNO MODIFICAR
         self.tamanho_populacao = tamanho_populacao
-        self.profundidade = profundidade
-        self.populacao = [IndividuoPG(profundidade) for _ in range(tamanho_populacao)]
-        self.melhor_individuo = None
-        self.melhor_fitness = float('-inf')
+        self.profundidade_min = profundidade_min
+        self.profundidade_max = profundidade_max
+        self.num_populacoes = 5  # Número de populações paralelas
+        self.populacoes = []
+        self.melhores_individuos = []
+        self.melhor_individuo_global = None
+        self.melhor_fitness_global = float('-inf')
         self.historico_fitness = []
+        
+        # Inicializar múltiplas populações
+        for _ in range(self.num_populacoes):
+            populacao = []
+            for _ in range(self.tamanho_populacao):
+                profundidade = random.randint(self.profundidade_min, self.profundidade_max)
+                populacao.append(IndividuoPG(profundidade))
+            self.populacoes.append(populacao)
     
     def avaliar_populacao(self):
         ambiente = Ambiente()
         robo = Robo(ambiente.largura // 2, ambiente.altura // 2)
         
-        for individuo in self.populacao:
-            fitness = 0
-            
-            # Simular 5 tentativas
-            for _ in range(5):
-                ambiente.reset()
-                robo.reset(ambiente.largura // 2, ambiente.altura // 2)
+        for i, populacao in enumerate(self.populacoes):
+            for individuo in populacao:
+                fitness = 0
                 
-                while True:
-                    # Obter sensores
-                    sensores = robo.get_sensores(ambiente)
+                # Simular 5 tentativas
+                for _ in range(5):
+                    ambiente.reset()
+                    robo.reset(ambiente.largura // 2, ambiente.altura // 2)
                     
-                    # Avaliar árvores de decisão
-                    aceleracao = individuo.avaliar(sensores, 'aceleracao')
-                    rotacao = individuo.avaliar(sensores, 'rotacao')
+                    while True:
+                        sensores = robo.get_sensores(ambiente)
+                        aceleracao = individuo.avaliar(sensores, 'aceleracao')
+                        rotacao = individuo.avaliar(sensores, 'rotacao')
+                        
+                        aceleracao = max(-1, min(1, aceleracao))
+                        rotacao = max(-0.5, min(0.5, rotacao))
+                        
+                        sem_energia = robo.mover(aceleracao, rotacao, ambiente)
+                        
+                        if sem_energia or ambiente.passo():
+                            break
                     
-                    # Limitar valores
-                    aceleracao = max(-1, min(1, aceleracao))
-                    rotacao = max(-0.5, min(0.5, rotacao))
+                    fitness_tentativa = (
+                        robo.recursos_coletados * 500 +
+                        robo.distancia_percorrida * 0.1 +
+                        (1000 - robo.tempo_parado) * 0.8 +
+                        robo.energia * 0.5 +
+                        (1000 - robo.colisoes * 50) +
+                        (10000 if robo.meta_atingida else 0)
+                    )
                     
-                    # Mover robô
-                    sem_energia = robo.mover(aceleracao, rotacao, ambiente)
+                    if robo.meta_atingida:
+                        fitness_tentativa += robo.energia * 2
+                        fitness_tentativa += (10 - min(robo.colisoes, 10)) * 100
+                        if robo.recursos_coletados == len(ambiente.recursos):
+                            fitness_tentativa += 2000
                     
-                    # Verificar fim da simulação
-                    if sem_energia or ambiente.passo():
-                        break
+                    fitness += max(0, fitness_tentativa)
                 
-                # Calcular fitness com pesos ajustados
-                fitness_tentativa = (
-                    robo.recursos_coletados * 500 +  # Aumentado para dar mais importância aos recursos
-                    robo.distancia_percorrida * 0.1 +  # Reduzido para não incentivar movimento desnecessário
-                    (1000 - robo.tempo_parado) * 0.8 +  # Aumentado para penalizar mais o tempo parado
-                    robo.energia * 0.5 +  # Aumentado para dar mais importância à eficiência energética
-                    (1000 - robo.colisoes * 50) +  # Aumentado para penalizar mais as colisões
-                    (10000 if robo.meta_atingida else 0)  # Aumentado significativamente para priorizar a meta
-                )
+                individuo.fitness = fitness / 5
                 
-                # Bônus por eficiência
-                if robo.meta_atingida:
-                    # Bônus por atingir a meta com energia
-                    fitness_tentativa += robo.energia * 2
-                    # Bônus por atingir a meta com poucas colisões
-                    fitness_tentativa += (10 - min(robo.colisoes, 10)) * 100
-                    # Bônus por coletar todos os recursos
-                    if robo.recursos_coletados == len(ambiente.recursos):
-                        fitness_tentativa += 2000
-                
-                fitness += max(0, fitness_tentativa)
-            
-            individuo.fitness = fitness / 5  # Média das 5 tentativas
-            
-            # Atualizar melhor indivíduo
-            if individuo.fitness > self.melhor_fitness:
-                self.melhor_fitness = individuo.fitness
-                self.melhor_individuo = individuo
+                # Atualizar melhor indivíduo global
+                if individuo.fitness > self.melhor_fitness_global:
+                    self.melhor_fitness_global = individuo.fitness
+                    self.melhor_individuo_global = individuo
     
-    def selecionar(self):
-        # Seleção por torneio com tamanho variável e elitismo
-        tamanho_torneio = 5  # Reduzido para menos pressão seletiva
+    def selecionar(self, populacao, geracao, n_geracoes):
+        # Tamanho do torneio dinâmico baseado na geração
+        tamanho_torneio = max(3, min(10, int(5 + (geracao / n_geracoes) * 5)))
         selecionados = []
 
         # Manter os 10% melhores indivíduos (elitismo ajustado)
         n_elite = max(1, int(self.tamanho_populacao * 0.10))
-        elite = sorted(self.populacao, key=lambda x: x.fitness, reverse=True)[:n_elite]
+        elite = sorted(populacao, key=lambda x: x.fitness, reverse=True)[:n_elite]
         selecionados.extend(elite)
 
         # Selecionar o resto por torneio
         while len(selecionados) < self.tamanho_populacao:
             # Seleção por torneio
-            torneio = random.sample(self.populacao, tamanho_torneio)
+            torneio = random.sample(populacao, tamanho_torneio)
             vencedor = max(torneio, key=lambda x: x.fitness)
             
             # Adicionar com probabilidade baseada no fitness
@@ -791,7 +792,7 @@ class ProgramacaoGenetica:
                 selecionados.append(vencedor)
             else:
                 # 20% de chance de selecionar um indivíduo aleatório para manter diversidade
-                selecionados.append(random.choice(self.populacao))
+                selecionados.append(random.choice(populacao))
 
         return selecionados
     
@@ -800,36 +801,57 @@ class ProgramacaoGenetica:
         for geracao in range(n_geracoes):
             print(f"Geração {geracao + 1}/{n_geracoes}")
             
-            # Avaliar população
+            # Avaliar todas as populações
             self.avaliar_populacao()
             
-            # Registrar melhor fitness
-            self.historico_fitness.append(self.melhor_fitness)
-            print(f"Melhor fitness: {self.melhor_fitness:.2f}")
+            # Registrar melhor fitness global
+            self.historico_fitness.append(self.melhor_fitness_global)
+            print(f"Melhor fitness global: {self.melhor_fitness_global:.2f}")
             
-            # Selecionar indivíduos
-            selecionados = self.selecionar()
-            
-            # Criar nova população
-            nova_populacao = []
-            
-            # Elitismo - manter o melhor indivíduo
-            nova_populacao.append(self.melhor_individuo)
-            
-            # Preencher o resto da população
-            while len(nova_populacao) < self.tamanho_populacao:
-                pai1, pai2 = random.sample(selecionados, 2)
-                filho = pai1.crossover(pai2)
+            # Evoluir cada população
+            novas_populacoes = []
+            for i, populacao in enumerate(self.populacoes):
+                # Selecionar indivíduos
+                selecionados = self.selecionar(populacao, geracao, n_geracoes)
                 
-                # Mutação adaptativa baseada na geração
-                prob_mutacao = 0.2 * (1 - geracao/n_geracoes)  # Diminui com o tempo
-                filho.mutacao(probabilidade=prob_mutacao)
+                # Criar nova população
+                nova_populacao = []
                 
-                nova_populacao.append(filho)
+                # Elitismo - manter o melhor indivíduo
+                melhor_local = max(populacao, key=lambda x: x.fitness)
+                nova_populacao.append(melhor_local)
+                
+                # Preencher o resto da população
+                while len(nova_populacao) < self.tamanho_populacao:
+                    pai1, pai2 = random.sample(selecionados, 2)
+                    filho = pai1.crossover(pai2)
+                    
+                    # Mutação adaptativa
+                    prob_mutacao = 0.2 * (1 - geracao/n_geracoes)
+                    filho.mutacao(probabilidade=prob_mutacao)
+                    
+                    nova_populacao.append(filho)
+                
+                novas_populacoes.append(nova_populacao)
             
-            self.populacao = nova_populacao
+            self.populacoes = novas_populacoes
+            
+            # Migração entre populações a cada 10 gerações
+            if geracao % 10 == 0:
+                self.migrar_individuos()
         
-        return self.melhor_individuo, self.historico_fitness
+        return self.melhor_individuo_global, self.historico_fitness
+    
+    def migrar_individuos(self):
+        # Migrar os melhores indivíduos entre populações
+        for i in range(self.num_populacoes):
+            melhor_individuo = max(self.populacoes[i], key=lambda x: x.fitness)
+            populacao_destino = (i + 1) % self.num_populacoes
+            pior_individuo = min(self.populacoes[populacao_destino], key=lambda x: x.fitness)
+            
+            # Substituir o pior indivíduo da população destino pelo melhor da população origem
+            idx_pior = self.populacoes[populacao_destino].index(pior_individuo)
+            self.populacoes[populacao_destino][idx_pior] = melhor_individuo
 
 # =====================================================================
 # PARTE 3: EXECUÇÃO DO PROGRAMA (PARA O ALUNO MODIFICAR)
@@ -844,10 +866,11 @@ if __name__ == "__main__":
     print("Treinando o algoritmo genético...")
     # Parâmetros otimizados
     pg = ProgramacaoGenetica(
-        tamanho_populacao=300,  # Aumentado para maior diversidade
-        profundidade=5  # Reduzido para evitar árvores muito complexas
+        tamanho_populacao=500,  # Aumentado para 500 indivíduos
+        profundidade_min=3,      # Profundidade mínima
+        profundidade_max=6       # Profundidade máxima
     )
-    melhor_individuo, historico = pg.evoluir(n_geracoes=10) 
+    melhor_individuo, historico = pg.evoluir(n_geracoes=50)  # aumentado para 50 gerações
     
     # Salvar o melhor indivíduo
     print("Salvando o melhor indivíduo...")

@@ -61,3 +61,36 @@
 10. Sistema de Elitismo Global
 - Mantém registro do melhor indivíduo global entre todas as populações
 - Permite que o melhor indivíduo seja preservado independente da população
+
+---------------------------------------
+## Correção de Bug 
+11. O Problema de Overflow:
+- O erro "overflow encountered" ocorre quando um cálculo matemático resulta em um número que é maior do que o tipo de dado pode representar
+- No nosso caso, estava acontecendo principalmente nos cálculos de distância usando np.sqrt(dx*dx + dy*dy)
+- Quando multiplicamos números grandes (dxdx e dydy), o resultado pode exceder o limite do tipo de dado
+
+12. Por que o problema acontecia:
+- Quando o robô estava muito longe de um recurso ou da meta, as diferenças de coordenadas (dx e dy) podiam ser muito grandes
+- Ao elevar esses números ao quadrado (dxdx e dydy), o resultado podia ser tão grande que causava overflow
+- Por exemplo, se dx = 10000, então dxdx = 100000000, que pode causar problemas em alguns tipos de dados
+
+13. A solução implementada:
+- Substituímos o cálculo np.sqrt(dx*dx + dy*dy) por np.hypot(dx, dy)
+- O np.hypot é uma função especializada que:
+    - Calcula a hipotenusa de forma mais segura
+    - Evita problemas de overflow mesmo com números grandes
+    - É mais precisa numericamente
+- Convertemos explicitamente os números para float para garantir que tenhamos precisão suficiente
+
+14. Por que a solução funciona:
+- O np.hypot usa um algoritmo mais sofisticado que:
+    - Evita multiplicações diretas de números grandes
+    - Normaliza os números antes de fazer os cálculos
+    - Lida melhor com casos extremos
+- A conversão para float garante que temos 64 bits de precisão
+
+15. Benefícios das mudanças:
+- Eliminação dos avisos de overflow
+- Cálculos mais precisos
+- Código mais robusto
+- Melhor comportamento do robô em situações extremas

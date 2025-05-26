@@ -104,7 +104,11 @@ class Ambiente:
         recursos_coletados = 0
         for recurso in self.recursos:
             if not recurso['coletado']:
-                distancia = np.sqrt((x - recurso['x'])**2 + (y - recurso['y'])**2)
+                # Usando uma abordagem mais segura para cálculo de distância
+                dx = float(x - recurso['x'])
+                dy = float(y - recurso['y'])
+                # Usando hypot para cálculo mais seguro de distância
+                distancia = np.hypot(dx, dy)
                 if distancia < raio + 10:  # 10 é o raio do recurso
                     recurso['coletado'] = True
                     recursos_coletados += 1
@@ -112,7 +116,11 @@ class Ambiente:
     
     def verificar_atingir_meta(self, x, y, raio):
         if not self.meta_atingida:
-            distancia = np.sqrt((x - self.meta['x'])**2 + (y - self.meta['y'])**2)
+            # Usando uma abordagem mais segura para cálculo de distância
+            dx = float(x - self.meta['x'])
+            dy = float(y - self.meta['y'])
+            # Usando hypot para cálculo mais seguro de distância
+            distancia = np.hypot(dx, dy)
             if distancia < raio + self.meta['raio']:
                 self.meta_atingida = True
                 return True
@@ -255,28 +263,40 @@ class Robo:
         dist_recurso = float('inf')
         for recurso in ambiente.recursos:
             if not recurso['coletado']:
-                dist = np.sqrt((self.x - recurso['x'])**2 + (self.y - recurso['y'])**2)
+                # Usando uma abordagem mais segura para cálculo de distância
+                dx = float(self.x - recurso['x'])
+                dy = float(self.y - recurso['y'])
+                # Usando hypot para cálculo mais seguro de distância
+                dist = np.hypot(dx, dy)
                 dist_recurso = min(dist_recurso, dist)
         
         # Distância até o obstáculo mais próximo
         dist_obstaculo = float('inf')
         for obstaculo in ambiente.obstaculos:
             # Simplificação: considerar apenas a distância até o centro do obstáculo
-            centro_x = obstaculo['x'] + obstaculo['largura'] / 2
-            centro_y = obstaculo['y'] + obstaculo['altura'] / 2
-            dist = np.sqrt((self.x - centro_x)**2 + (self.y - centro_y)**2)
+            centro_x = float(obstaculo['x'] + obstaculo['largura'] / 2)
+            centro_y = float(obstaculo['y'] + obstaculo['altura'] / 2)
+            # Usando uma abordagem mais segura para cálculo de distância
+            dx = float(self.x - centro_x)
+            dy = float(self.y - centro_y)
+            # Usando hypot para cálculo mais seguro de distância
+            dist = np.hypot(dx, dy)
             dist_obstaculo = min(dist_obstaculo, dist)
         
         # Distância até a meta
-        dist_meta = np.sqrt((self.x - ambiente.meta['x'])**2 + (self.y - ambiente.meta['y'])**2)
+        # Usando uma abordagem mais segura para cálculo de distância
+        dx_meta = float(self.x - ambiente.meta['x'])
+        dy_meta = float(self.y - ambiente.meta['y'])
+        # Usando hypot para cálculo mais seguro de distância
+        dist_meta = np.hypot(dx_meta, dy_meta)
         
         # Ângulo até o recurso mais próximo
         angulo_recurso = 0
         if dist_recurso < float('inf'):
             for recurso in ambiente.recursos:
                 if not recurso['coletado']:
-                    dx = recurso['x'] - self.x
-                    dy = recurso['y'] - self.y
+                    dx = float(recurso['x'] - self.x)
+                    dy = float(recurso['y'] - self.y)
                     angulo = np.arctan2(dy, dx)
                     angulo_recurso = angulo - self.angulo
                     # Normalizar para [-pi, pi]
@@ -287,8 +307,8 @@ class Robo:
                     break
         
         # Ângulo até a meta
-        dx_meta = ambiente.meta['x'] - self.x
-        dy_meta = ambiente.meta['y'] - self.y
+        dx_meta = float(ambiente.meta['x'] - self.x)
+        dy_meta = float(ambiente.meta['y'] - self.y)
         angulo_meta = np.arctan2(dy_meta, dx_meta) - self.angulo
         # Normalizar para [-pi, pi]
         while angulo_meta > np.pi:
@@ -545,13 +565,21 @@ class IndividuoPG:
         if self.profundidade == 0:
             return self.criar_folha()
 
-        operador = random.choice([
+        # Aumentando a probabilidade de operadores relacionados à meta
+        operadores = [
             '+', '-', '*', '/', 'max', 'min', 'abs', 
             'if_positivo', 'if_negativo', 'if_then_else',
             'sin', 'cos', 'media', 'prioridade',
-            'if_maior', 'if_menor',  # Novos operadores
-            'potencia', 'raiz_quadrada'  # Novos operadores
-        ])
+            'if_recurso_proximo',
+            'if_todos_coletados',
+            'if_energia_baixa',
+            'if_meta_proxima',
+            'if_meta_proxima',
+            'if_meta_proxima',  # Triplicando a chance deste operador
+            'ir_para_meta'  # Novo operador específico
+        ]
+        
+        operador = random.choice(operadores)
 
         if operador in ['+', '-', '*', '/', 'max', 'min', 'prioridade', 'media']:
             return {
@@ -560,7 +588,7 @@ class IndividuoPG:
                 'esquerda': IndividuoPG(self.profundidade - 1).criar_arvore_aleatoria(),
                 'direita': IndividuoPG(self.profundidade - 1).criar_arvore_aleatoria()
             }
-        elif operador in ['abs', 'sin', 'cos', 'raiz_quadrada']:
+        elif operador in ['abs', 'sin', 'cos']:
             return {
                 'tipo': 'operador',
                 'operador': operador,
@@ -582,7 +610,10 @@ class IndividuoPG:
         tipo = random.choice([
             'constante', 'dist_recurso', 'dist_obstaculo', 'dist_meta',
             'angulo_recurso', 'angulo_meta', 'energia', 'velocidade', 
-            'meta_atingida'
+            'meta_atingida',
+            'recursos_restantes',  # Novo sensor
+            'distancia_ultima_posicao',  # Novo sensor
+            'tempo_restante'  # Novo sensor
         ])
         if tipo == 'constante':
             return {'tipo': 'folha', 'valor': random.uniform(-10, 10)}
@@ -601,38 +632,72 @@ class IndividuoPG:
             if 'valor' in no:
                 return no['valor']
             elif 'variavel' in no:
-                return sensores.get(no['variavel'], 0)
+                valor = sensores.get(no['variavel'], 0)
+                # Normalização de valores para melhor controle
+                if no['variavel'] in ['dist_recurso', 'dist_obstaculo', 'dist_meta']:
+                    return min(valor / 1000, 1.0)  # Limita a distância normalizada
+                elif no['variavel'] in ['angulo_recurso', 'angulo_meta']:
+                    return valor / np.pi  # Normaliza ângulos
+                return valor
 
         op = no.get('operador')
 
         if op == 'abs':
             return abs(self.avaliar_no(no.get('esquerda'), sensores))
         elif op == 'sin':
-            return np.sin(self.avaliar_no(no.get('esquerda'), sensores))
+            valor = self.avaliar_no(no.get('esquerda'), sensores)
+            return np.sin(min(max(valor, -np.pi), np.pi))  # Limita o valor do seno
         elif op == 'cos':
-            return np.cos(self.avaliar_no(no.get('esquerda'), sensores))
-        elif op == 'raiz_quadrada':
-            val = self.avaliar_no(no.get('esquerda'), sensores)
-            return np.sqrt(abs(val)) if val >= 0 else -np.sqrt(abs(val))
+            valor = self.avaliar_no(no.get('esquerda'), sensores)
+            return np.cos(min(max(valor, -np.pi), np.pi))  # Limita o valor do cosseno
         elif op == 'media':
             return (self.avaliar_no(no.get('esquerda'), sensores) + self.avaliar_no(no.get('direita'), sensores)) / 2
         elif op == 'prioridade':
-            esq = self.avaliar_no(no.get('esquerda'), sensores)
-            return esq if esq > 0.7 else self.avaliar_no(no.get('direita'), sensores)
+            # Nova lógica de priorização mais forte
+            recursos_coletados = sensores.get('recursos_coletados', 0)
+            total_recursos = sensores.get('total_recursos', 5)
+            
+            if recursos_coletados == total_recursos:
+                # Se todos os recursos foram coletados, força prioridade para meta
+                return self.avaliar_no(no.get('direita'), sensores) * 2  # Multiplicador para forçar direção à meta
+            else:
+                # Se ainda há recursos, prioriza o recurso mais próximo
+                return self.avaliar_no(no.get('esquerda'), sensores)
         elif op == 'if_then_else':
             cond = self.avaliar_no(no.get('condicao'), sensores)
             return self.avaliar_no(no.get('entao'), sensores) if cond > 0 else self.avaliar_no(no.get('senao'), sensores)
-        elif op == 'if_maior':
-            esq = self.avaliar_no(no.get('esquerda'), sensores)
-            dir = self.avaliar_no(no.get('direita'), sensores)
-            return 1 if esq > dir else -1
-        elif op == 'if_menor':
-            esq = self.avaliar_no(no.get('esquerda'), sensores)
-            dir = self.avaliar_no(no.get('direita'), sensores)
-            return 1 if esq < dir else -1
+        elif op == 'if_recurso_proximo':
+            dist_recurso = sensores.get('dist_recurso', float('inf'))
+            return 1 if dist_recurso < 200 else -1
+        elif op == 'if_todos_coletados':
+            recursos_coletados = sensores.get('recursos_coletados', 0)
+            total_recursos = sensores.get('total_recursos', 5)
+            return 1 if recursos_coletados == total_recursos else -1
+        elif op == 'if_energia_baixa':
+            energia = sensores.get('energia', 100)
+            return 1 if energia < 30 else -1
+        elif op == 'if_meta_proxima':
+            dist_meta = sensores.get('dist_meta', float('inf'))
+            return 1 if dist_meta < 300 else -1
+        elif op == 'ir_para_meta':
+            # Novo operador que força movimento em direção à meta
+            recursos_coletados = sensores.get('recursos_coletados', 0)
+            total_recursos = sensores.get('total_recursos', 5)
+            angulo_meta = sensores.get('angulo_meta', 0)
+            
+            if recursos_coletados == total_recursos:
+                # Se todos os recursos foram coletados, retorna o ângulo para a meta
+                return angulo_meta
+            else:
+                # Caso contrário, retorna 0 (sem influência)
+                return 0
 
         esquerda = self.avaliar_no(no.get('esquerda'), sensores)
         direita = self.avaliar_no(no.get('direita'), sensores) if no.get('direita') is not None else 0
+
+        # Limita os valores para evitar overflow
+        esquerda = min(max(esquerda, -1000), 1000)
+        direita = min(max(direita, -1000), 1000)
 
         if op == '+': return esquerda + direita
         elif op == '-': return esquerda - direita
@@ -640,11 +705,10 @@ class IndividuoPG:
         elif op == '/': return esquerda / direita if direita != 0 else 0
         elif op == 'max': return max(esquerda, direita)
         elif op == 'min': return min(esquerda, direita)
-        elif op == 'potencia': return esquerda ** min(abs(direita), 3)  # Limita o expoente para evitar overflow
 
         return 0
 
-    def mutacao(self, probabilidade=0.2):
+    def mutacao(self, probabilidade=0.4):
         self.mutacao_no(self.arvore_aceleracao, probabilidade)
         self.mutacao_no(self.arvore_rotacao, probabilidade)
 
@@ -701,157 +765,153 @@ class IndividuoPG:
             return individuo
 
 class ProgramacaoGenetica:
-    def __init__(self, tamanho_populacao=1000, profundidade_min=3, profundidade_max=6):
-        # PARÂMETROS PARA O ALUNO MODIFICAR
+    def __init__(self, tamanho_populacao=50, profundidade=3):
         self.tamanho_populacao = tamanho_populacao
-        self.profundidade_min = profundidade_min
-        self.profundidade_max = profundidade_max
-        self.num_populacoes = 5  # Número de populações paralelas
-        self.populacoes = []
-        self.melhores_individuos = []
-        self.melhor_individuo_global = None
-        self.melhor_fitness_global = float('-inf')
+        self.profundidade = profundidade
+        self.populacao = [IndividuoPG(profundidade) for _ in range(tamanho_populacao)]
+        self.melhor_individuo = None
+        self.melhor_fitness = float('-inf')
         self.historico_fitness = []
-        
-        # Inicializar múltiplas populações
-        for _ in range(self.num_populacoes):
-            populacao = []
-            for _ in range(self.tamanho_populacao):
-                profundidade = random.randint(self.profundidade_min, self.profundidade_max)
-                populacao.append(IndividuoPG(profundidade))
-            self.populacoes.append(populacao)
     
     def avaliar_populacao(self):
         ambiente = Ambiente()
         robo = Robo(ambiente.largura // 2, ambiente.altura // 2)
         
-        for i, populacao in enumerate(self.populacoes):
-            for individuo in populacao:
-                fitness = 0
+        for individuo in self.populacao:
+            fitness = 0
+            
+            # Simular 5 tentativas
+            for _ in range(5):
+                ambiente.reset()
+                robo.reset(ambiente.largura // 2, ambiente.altura // 2)
+                ultima_distancia_recurso = float('inf')
+                ultima_distancia_meta = float('inf')
+                tempo_sem_progresso = 0
+                recursos_coletados_anterior = 0
+                tempo_apos_coleta = 0
                 
-                # Simular 5 tentativas
-                for _ in range(5):
-                    ambiente.reset()
-                    robo.reset(ambiente.largura // 2, ambiente.altura // 2)
+                while True:
+                    # Obter sensores
+                    sensores = robo.get_sensores(ambiente)
+                    sensores['total_recursos'] = len(ambiente.recursos)
                     
-                    while True:
-                        sensores = robo.get_sensores(ambiente)
-                        aceleracao = individuo.avaliar(sensores, 'aceleracao')
-                        rotacao = individuo.avaliar(sensores, 'rotacao')
-                        
-                        aceleracao = max(-1, min(1, aceleracao))
-                        rotacao = max(-0.5, min(0.5, rotacao))
-                        
-                        sem_energia = robo.mover(aceleracao, rotacao, ambiente)
-                        
-                        if sem_energia or ambiente.passo():
-                            break
+                    # Avaliar árvores de decisão
+                    aceleracao = individuo.avaliar(sensores, 'aceleracao')
+                    rotacao = individuo.avaliar(sensores, 'rotacao')
                     
-                    fitness_tentativa = (
-                        robo.recursos_coletados * 500 +
-                        robo.distancia_percorrida * 0.1 +
-                        (1000 - robo.tempo_parado) * 0.8 +
-                        robo.energia * 0.5 +
-                        (1000 - robo.colisoes * 50) +
-                        (10000 if robo.meta_atingida else 0)
-                    )
+                    # Limitar valores
+                    aceleracao = max(-1, min(1, aceleracao))
+                    rotacao = max(-0.5, min(0.5, rotacao))
                     
-                    if robo.meta_atingida:
-                        fitness_tentativa += robo.energia * 2
-                        fitness_tentativa += (10 - min(robo.colisoes, 10)) * 100
-                        if robo.recursos_coletados == len(ambiente.recursos):
-                            fitness_tentativa += 2000
+                    # Mover robô
+                    sem_energia = robo.mover(aceleracao, rotacao, ambiente)
                     
-                    fitness += max(0, fitness_tentativa)
+                    # Verificar progresso
+                    nova_distancia_recurso = sensores.get('dist_recurso', float('inf'))
+                    nova_distancia_meta = sensores.get('dist_meta', float('inf'))
+                    
+                    # Verificar progresso na coleta
+                    if robo.recursos_coletados > recursos_coletados_anterior:
+                        recursos_coletados_anterior = robo.recursos_coletados
+                        tempo_sem_progresso = 0
+                        tempo_apos_coleta = 0
+                    # Verificar progresso em direção à meta após coleta completa
+                    elif robo.recursos_coletados == len(ambiente.recursos):
+                        tempo_apos_coleta += 1
+                        if nova_distancia_meta < ultima_distancia_meta:
+                            tempo_sem_progresso = 0
+                        else:
+                            tempo_sem_progresso += 1
+                    # Verificar progresso em direção ao recurso
+                    elif nova_distancia_recurso < ultima_distancia_recurso:
+                        tempo_sem_progresso = 0
+                    else:
+                        tempo_sem_progresso += 1
+                    
+                    ultima_distancia_recurso = nova_distancia_recurso
+                    ultima_distancia_meta = nova_distancia_meta
+                    
+                    # Verificar fim da simulação
+                    if sem_energia or ambiente.passo() or tempo_sem_progresso > 50 or (tempo_apos_coleta > 100 and robo.recursos_coletados == len(ambiente.recursos)):
+                        break
                 
-                individuo.fitness = fitness / 5
+                # Calcular fitness 
+                fitness_tentativa = (
+                    robo.recursos_coletados * 300 +  # Aumentado de 100 para 300
+                    robo.distancia_percorrida * 0.2 +  # Aumentado de 0.1 para 0.2
+                    (1000 - robo.tempo_parado) * 0.5 +  # Novo: penalidade por ficar parado
+                    robo.energia * 0.3 +  # Novo: bônus por manter energia
+                    (1000 - robo.colisoes * 30) +  # Reduzido de 50 para 30
+                    (5000 if robo.meta_atingida else 0)  # Aumentado de 500 para 5000
+                )
                 
-                # Atualizar melhor indivíduo global
-                if individuo.fitness > self.melhor_fitness_global:
-                    self.melhor_fitness_global = individuo.fitness
-                    self.melhor_individuo_global = individuo
+                # Penalidades adicionais
+                if robo.recursos_coletados == 0:
+                    fitness_tentativa *= 0.3  # Penalidade maior por não coletar recursos
+                elif robo.recursos_coletados < len(ambiente.recursos) and robo.meta_atingida:
+                    fitness_tentativa *= 0.5  # Penalidade por ir para meta sem coletar tudo
+                elif robo.recursos_coletados == len(ambiente.recursos) and not robo.meta_atingida:
+                    fitness_tentativa *= 0.5  # Penalidade maior por não ir para meta após coletar tudo
+                    # Penalidade adicional baseada no tempo após coleta
+                    fitness_tentativa *= max(0.5, 1 - (tempo_apos_coleta / 100))
+                
+                fitness += max(0, fitness_tentativa)
+            
+            individuo.fitness = fitness / 5  # Média das 5 tentativas
+            
+            # Atualizar melhor indivíduo
+            if individuo.fitness > self.melhor_fitness:
+                self.melhor_fitness = individuo.fitness
+                self.melhor_individuo = individuo
     
-    def selecionar(self, populacao, geracao, n_geracoes):
-        # Tamanho do torneio dinâmico baseado na geração
-        tamanho_torneio = max(3, min(10, int(5 + (geracao / n_geracoes) * 5)))
+    def selecionar(self):
+        # Seleção por torneio com tamanho variável
+        tamanho_torneio = 5
         selecionados = []
-
-        # Manter os 10% melhores indivíduos (elitismo ajustado)
-        n_elite = max(1, int(self.tamanho_populacao * 0.10))
-        elite = sorted(populacao, key=lambda x: x.fitness, reverse=True)[:n_elite]
+        
+        # Manter os 15% melhores indivíduos
+        n_elite = max(1, int(self.tamanho_populacao * 0.15))
+        elite = sorted(self.populacao, key=lambda x: x.fitness, reverse=True)[:n_elite]
         selecionados.extend(elite)
-
+        
         # Selecionar o resto por torneio
         while len(selecionados) < self.tamanho_populacao:
-            # Seleção por torneio
-            torneio = random.sample(populacao, tamanho_torneio)
+            torneio = random.sample(self.populacao, tamanho_torneio)
             vencedor = max(torneio, key=lambda x: x.fitness)
-            
-            # Adicionar com probabilidade baseada no fitness
-            if random.random() < 0.8:  # 80% de chance de selecionar o vencedor
-                selecionados.append(vencedor)
-            else:
-                # 20% de chance de selecionar um indivíduo aleatório para manter diversidade
-                selecionados.append(random.choice(populacao))
-
+            selecionados.append(vencedor)
+        
         return selecionados
     
     def evoluir(self, n_geracoes=50):
-        # Aumentado número de gerações para melhor evolução
         for geracao in range(n_geracoes):
             print(f"Geração {geracao + 1}/{n_geracoes}")
             
-            # Avaliar todas as populações
+            # Avaliar população
             self.avaliar_populacao()
             
-            # Registrar melhor fitness global
-            self.historico_fitness.append(self.melhor_fitness_global)
-            print(f"Melhor fitness global: {self.melhor_fitness_global:.2f}")
+            # Registrar melhor fitness
+            self.historico_fitness.append(self.melhor_fitness)
+            print(f"Melhor fitness: {self.melhor_fitness:.2f}")
             
-            # Evoluir cada população
-            novas_populacoes = []
-            for i, populacao in enumerate(self.populacoes):
-                # Selecionar indivíduos
-                selecionados = self.selecionar(populacao, geracao, n_geracoes)
-                
-                # Criar nova população
-                nova_populacao = []
-                
-                # Elitismo - manter o melhor indivíduo
-                melhor_local = max(populacao, key=lambda x: x.fitness)
-                nova_populacao.append(melhor_local)
-                
-                # Preencher o resto da população
-                while len(nova_populacao) < self.tamanho_populacao:
-                    pai1, pai2 = random.sample(selecionados, 2)
-                    filho = pai1.crossover(pai2)
-                    
-                    # Mutação adaptativa
-                    prob_mutacao = 0.2 * (1 - geracao/n_geracoes)
-                    filho.mutacao(probabilidade=prob_mutacao)
-                    
-                    nova_populacao.append(filho)
-                
-                novas_populacoes.append(nova_populacao)
+            # Selecionar indivíduos
+            selecionados = self.selecionar()
             
-            self.populacoes = novas_populacoes
+            # Criar nova população
+            nova_populacao = []
             
-            # Migração entre populações a cada 10 gerações
-            if geracao % 10 == 0:
-                self.migrar_individuos()
+            # Elitismo - manter o melhor indivíduo
+            nova_populacao.append(self.melhor_individuo)
+            
+            # Preencher o resto da população
+            while len(nova_populacao) < self.tamanho_populacao:
+                pai1, pai2 = random.sample(selecionados, 2)
+                filho = pai1.crossover(pai2)
+                filho.mutacao(probabilidade=0.2)  # Aumentada probabilidade de mutação
+                nova_populacao.append(filho)
+            
+            self.populacao = nova_populacao
         
-        return self.melhor_individuo_global, self.historico_fitness
-    
-    def migrar_individuos(self):
-        # Migrar os melhores indivíduos entre populações
-        for i in range(self.num_populacoes):
-            melhor_individuo = max(self.populacoes[i], key=lambda x: x.fitness)
-            populacao_destino = (i + 1) % self.num_populacoes
-            pior_individuo = min(self.populacoes[populacao_destino], key=lambda x: x.fitness)
-            
-            # Substituir o pior indivíduo da população destino pelo melhor da população origem
-            idx_pior = self.populacoes[populacao_destino].index(pior_individuo)
-            self.populacoes[populacao_destino][idx_pior] = melhor_individuo
+        return self.melhor_individuo, self.historico_fitness
 
 # =====================================================================
 # PARTE 3: EXECUÇÃO DO PROGRAMA (PARA O ALUNO MODIFICAR)
@@ -864,13 +924,9 @@ if __name__ == "__main__":
     
     # Criar e treinar o algoritmo genético
     print("Treinando o algoritmo genético...")
-    # Parâmetros otimizados
-    pg = ProgramacaoGenetica(
-        tamanho_populacao=500,  # Aumentado para 500 indivíduos
-        profundidade_min=3,      # Profundidade mínima
-        profundidade_max=6       # Profundidade máxima
-    )
-    melhor_individuo, historico = pg.evoluir(n_geracoes=50)  # aumentado para 50 gerações
+    # PARÂMETROS PARA O ALUNO MODIFICAR
+    pg = ProgramacaoGenetica(tamanho_populacao=400, profundidade=5)
+    melhor_individuo, historico = pg.evoluir(n_geracoes=10)
     
     # Salvar o melhor indivíduo
     print("Salvando o melhor indivíduo...")
@@ -883,7 +939,6 @@ if __name__ == "__main__":
     plt.title('Evolução do Fitness')
     plt.xlabel('Geração')
     plt.ylabel('Fitness')
-    plt.grid(True)
     plt.savefig('evolucao_fitness_robo.png')
     plt.close()
     
